@@ -26,6 +26,7 @@
 #include <kio/job.h>
 #include <KUrl>
 #include <KDebug>
+#include <KMessageBox>
 
 PicasaInterface::PicasaInterface(QObject *parent) : QObject(parent)
 {
@@ -34,21 +35,33 @@ PicasaInterface::PicasaInterface(QObject *parent) : QObject(parent)
 PicasaInterface::~PicasaInterface()
 {}
 
-void PicasaInterface::queryAlbum(const QString &searchTerm)
+void PicasaInterface::queryAlbum(const QString &searchTerm, const QString &password)
 {
     if (searchTerm.isEmpty()) {
         return;
     }
 
+    if (!password.isEmpty()) {
+        handlePassword(searchTerm, password);
+    }
+
     QString searchString = searchTerm;
-    searchString.replace(' ', '+');
-    // TODO: maybe reduce maximum results number allowed
+    // searchString.replace(' ', '+');
+
     const QString url = "http://picasaweb.google.com/data/feed/api/user/"
                + searchString
                + "?kind=album";
     KUrl query(url);
 
+    QString auth_string = "GoogleLogin auth=" + m_token;
+
     KIO::TransferJob *job = KIO::get(query, KIO::NoReload, KIO::HideProgressInfo);
+
+    KMessageBox::error(0, m_token);
+    if (!m_token.isEmpty()) {
+        job->addMetaData("content-type", "Content-Type: application/x-www-form-urlencoded");
+        job->addMetaData("customHTTPHeader", "Authorization: " + auth_string);
+    }
     m_queries[job] = searchTerm;
     connect (job, SIGNAL(data(KIO::Job*, const QByteArray &)), this, SLOT(picasaDataReady(KIO::Job*, const QByteArray &)));
     connect (job, SIGNAL(result(KJob *)), this, SLOT(parseResults(KJob*)));
@@ -91,11 +104,13 @@ void PicasaInterface::parseResults(KJob *job)
         QString title = entries.at(i).namedItem("title").toElement().text();
         QString summary = entries.at(i).namedItem("title").toElement().text();
         QString numPhotos = entries.at(i).namedItem("gphoto:numphotos").toElement().text();
+        // byteUsed only if the user is logged
         QString byteUsed = entries.at(i).namedItem("gphoto:bytesUsed").toElement().text();
+        //QDomElement mediaElement = entries.at(i).firstChildElement("media:thumbnail");
+        //QString thumb = mediaElement.attribute("url");
         QDomNode mediaNode = entries.at(i).namedItem("media:group");
-        QString thumb = mediaNode.namedItem("media:description").toElement().text();
-        QDomElement mediaNode = entries.at(i).firstChildElement("media:thumbnail");
-        QString thumb = mediaNode.attribute("url");
+        QDomElement mediaElement = mediaNode.firstChildElement("media:thumbnail");
+        QString thumb = mediaElement.attribute("url");
 
         Plasma::DataEngine::Data album;
         album["published"] = published;
@@ -104,11 +119,52 @@ void PicasaInterface::parseResults(KJob *job)
         album["summary"] = summary;
         album["link"] = link;
         album["number of photos"] = numPhotos;
-        album["byte used"] = byteUsed;
         album["thumbnail"] = thumb;
+
+        if (!byteUsed.isEmpty()) {
+            album["byte used"] = byteUsed;
+        }
+
         emit result(m_queries[static_cast<KIO::Job*>(job)], id, album);
     }
     m_queries.remove(static_cast<KIO::Job*>(job));
     m_datas.remove(static_cast<KIO::Job*>(job));
 
+}
+
+void PicasaInterface::handlePassword(const QString &username, const QString &password)
+{
+    KUrl url("https://www.google.com/accounts/ClientLogin");
+    QString accountType = "GOOGLE";
+    QStringList qsl;
+    qsl.append("Email="+username);
+    qsl.append("Passwd="+password);
+    qsl.append("accountType="+accountType);
+    qsl.append("service=lh2");
+    qsl.append("source=kde-picasaengine");
+    QString dataParameters = qsl.join("&");
+    QByteArray buffer;
+    buffer.append(dataParameters.toUtf8());
+
+    KIO::TransferJob *job = KIO::http_post(url, buffer, KIO::HideProgressInfo);
+    job->addMetaData("content-type", "Content-Type: application/x-www-form-urlencoded" );
+    connect (job, SIGNAL(data(KIO::Job*, const QByteArray &)), this, SLOT(data(KIO::Job*, const QByteArray &)));
+
+}
+
+void PicasaInterface::data(KIO::Job *job, const QByteArray &data)
+{
+    if (data.isEmpty())
+        return;
+
+    QString output(data);
+
+    if (output.contains("Auth=")) {
+        QStringList strList = output.split("Auth=");
+        if (strList.count() > 0) {
+            m_token = strList[1].trimmed();
+        }
+    }
+
+    KMessageBox::error(0, m_token);
 }

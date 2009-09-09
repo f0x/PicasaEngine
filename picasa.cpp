@@ -21,7 +21,7 @@
 
 // KDE
 #include <kio/job.h>
-
+#include <KMessageBox>
 
 PicasaEngine::PicasaEngine(QObject *parent, const QVariantList &args) : Plasma::DataEngine(parent, args),
 m_interface(new PicasaInterface(this))
@@ -40,7 +40,15 @@ bool PicasaEngine::sourceRequestEvent(const QString &name)
     }
     QString queryString = name;
     queryString.remove("album/");
-    m_interface->queryAlbum(queryString);
+
+    QString password;
+    if (queryString.contains(":")) {
+        QStringList list = queryString.split(":");
+        queryString = list.first();
+        password = list.last();        
+    }
+
+    m_interface->queryAlbum(queryString, password);
 
     return true;
 }

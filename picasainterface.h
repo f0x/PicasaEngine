@@ -45,7 +45,7 @@ public:
     PicasaInterface(QObject *parent = 0);
     ~PicasaInterface();
 
-    void queryAlbum(const QString &searchTerm);
+    void queryAlbum(const QString &searchTerm, const QString &password);
 
 signals:
     /**
@@ -64,10 +64,15 @@ signals:
 protected slots:
     void picasaDataReady(KIO::Job *job, const QByteArray &data);
     void parseResults(KJob *job);
+    void data(KIO::Job *job, const QByteArray &data);
 
 private:
     QHash<KIO::Job*, QString> m_queries;
     QHash<KIO::Job*, QString> m_datas;
+
+    QString m_token;
+
+    void handlePassword(const QString &username, const QString &password);
 };
 
 #endif
