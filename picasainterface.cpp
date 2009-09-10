@@ -35,34 +35,28 @@ PicasaInterface::PicasaInterface(QObject *parent) : QObject(parent)
 PicasaInterface::~PicasaInterface()
 {}
 
-void PicasaInterface::queryAlbum(const QString &searchTerm, const QString &password)
+void PicasaInterface::query(const QString &username, const QString &request)
 {
-    if (searchTerm.isEmpty()) {
+    if (username.isEmpty()) {
         return;
     }
 
-    if (!password.isEmpty()) {
-        handlePassword(searchTerm, password);
-    }
+    QString searchString = username;
 
-    QString searchString = searchTerm;
-    // searchString.replace(' ', '+');
-
-    const QString url = "http://picasaweb.google.com/data/feed/api/user/"
-               + searchString
-               + "?kind=album";
+    QString url = "http://picasaweb.google.com/data/feed/api/user/"
+               + username
+               + "?kind="
+               + request;
     KUrl query(url);
-
-    QString auth_string = "GoogleLogin auth=" + m_token;
 
     KIO::TransferJob *job = KIO::get(query, KIO::NoReload, KIO::HideProgressInfo);
 
-    KMessageBox::error(0, m_token);
     if (!m_token.isEmpty()) {
+        QString auth_string = "GoogleLogin auth=" + m_token;
         job->addMetaData("content-type", "Content-Type: application/x-www-form-urlencoded");
         job->addMetaData("customHTTPHeader", "Authorization: " + auth_string);
     }
-    m_queries[job] = searchTerm;
+    m_queries[job] = username;
     connect (job, SIGNAL(data(KIO::Job*, const QByteArray &)), this, SLOT(picasaDataReady(KIO::Job*, const QByteArray &)));
     connect (job, SIGNAL(result(KJob *)), this, SLOT(parseResults(KJob*)));
 }
@@ -132,8 +126,11 @@ void PicasaInterface::parseResults(KJob *job)
 
 }
 
-void PicasaInterface::handlePassword(const QString &username, const QString &password)
+void PicasaInterface::getTokenAndQuery(const QString &username, const QString &password, const QString &request)
 {
+    m_request = request;
+    m_username = username;
+
     KUrl url("https://www.google.com/accounts/ClientLogin");
     QString accountType = "GOOGLE";
     QStringList qsl;
@@ -148,11 +145,12 @@ void PicasaInterface::handlePassword(const QString &username, const QString &pas
 
     KIO::TransferJob *job = KIO::http_post(url, buffer, KIO::HideProgressInfo);
     job->addMetaData("content-type", "Content-Type: application/x-www-form-urlencoded" );
-    connect (job, SIGNAL(data(KIO::Job*, const QByteArray &)), this, SLOT(data(KIO::Job*, const QByteArray &)));
+    connect (job, SIGNAL(data(KIO::Job*, const QByteArray &)), this, SLOT(token(KIO::Job*, const QByteArray &)));
+    connect (job, SIGNAL(result(KJob *)), this, SLOT(passwordJob(KJob *)));
 
 }
 
-void PicasaInterface::data(KIO::Job *job, const QByteArray &data)
+void PicasaInterface::token(KIO::Job *job, const QByteArray &data)
 {
     if (data.isEmpty())
         return;
@@ -166,5 +164,13 @@ void PicasaInterface::data(KIO::Job *job, const QByteArray &data)
         }
     }
 
-    KMessageBox::error(0, m_token);
+}
+
+void PicasaInterface::passwordJob(KJob *job)
+{
+    if (m_token.isEmpty()) {
+        return;
+    }
+
+    query(m_username, m_request);
 }

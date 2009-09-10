@@ -35,20 +35,31 @@ PicasaEngine::~PicasaEngine()
 
 bool PicasaEngine::sourceRequestEvent(const QString &name)
 {
-    if (!name.startsWith("album/")) {
+    QString queryString = name;
+    QString request;
+
+    if (name.startsWith("album/")) {
+        queryString.remove("album/");
+        request = "album";
+    }
+    else if (name.startsWith("photo/")) {
+        queryString.remove("photo/");
+        request = "photo";
+    }
+    else {
         return false;
     }
-    QString queryString = name;
-    queryString.remove("album/");
 
     QString password;
     if (queryString.contains(":")) {
         QStringList list = queryString.split(":");
         queryString = list.first();
-        password = list.last();        
+        password = list.last();
+        m_interface->getTokenAndQuery(queryString, password, request);
     }
-
-    m_interface->queryAlbum(queryString, password);
+    else {
+        m_interface->query(queryString, request);
+    }
 
     return true;
 }

@@ -33,7 +33,7 @@ class PicasaInterface;
  * associated. See PicasaInterface in order to see the keys available to retrieve
  * single video informations.
  *
- * @author Alessandro Diaferia
+ * @author Francesco Grieco
  */
 class PicasaEngine : public Plasma::DataEngine
 {
