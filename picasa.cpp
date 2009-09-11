@@ -21,7 +21,6 @@
 
 // KDE
 #include <kio/job.h>
-#include <KMessageBox>
 
 PicasaEngine::PicasaEngine(QObject *parent, const QVariantList &args) : Plasma::DataEngine(parent, args),
 m_interface(new PicasaInterface(this))
@@ -38,13 +37,21 @@ bool PicasaEngine::sourceRequestEvent(const QString &name)
     QString queryString = name;
     QString request;
 
+    // the syntax to require the list of albums is
+    // album/user@gmail.com:password
+    // ex: album/user@gmail.com:password
     if (name.startsWith("album/")) {
         queryString.remove("album/");
         request = "album";
     }
+    // the syntax to require the photos of an album is
+    // photo/albumID/user@gmail.com:password
+    // ex: photo/32323232432/user@gmail.com:password
     else if (name.startsWith("photo/")) {
         queryString.remove("photo/");
-        request = "photo";
+        QStringList list = queryString.split("/");
+        queryString.remove(list.first() + "/");
+        request = "photo/" + list.first();
     }
     else {
         return false;
@@ -53,6 +60,8 @@ bool PicasaEngine::sourceRequestEvent(const QString &name)
     QString password;
     if (queryString.contains(":")) {
         QStringList list = queryString.split(":");
+        // if we require photos from an album, the albumid is contained
+        // in request
         queryString = list.first();
         password = list.last();
         m_interface->getTokenAndQuery(queryString, password, request);

@@ -26,7 +26,6 @@
 #include <kio/job.h>
 #include <KUrl>
 #include <KDebug>
-#include <KMessageBox>
 
 PicasaInterface::PicasaInterface(QObject *parent) : QObject(parent)
 {
@@ -41,12 +40,24 @@ void PicasaInterface::query(const QString &username, const QString &request)
         return;
     }
 
+    // if we require photos from an album, we have to split request to
+    // obtain the albumid; ex: photo/32323232432
+    if (request.contains("/")) {
+        m_albumid = request.split("/").last();
+        m_request = request.split("/").first();
+    }
+    else {
+        m_request = request;
+    }
+
     QString searchString = username;
 
-    QString url = "http://picasaweb.google.com/data/feed/api/user/"
-               + username
-               + "?kind="
-               + request;
+    QString url = "http://picasaweb.google.com/data/feed/api/user/" + username;
+    if (m_request.contains("photo")) {
+        url.append("/albumid/" +  m_albumid);
+    }
+    //url.append("?kind=" + m_request);
+
     KUrl query(url);
 
     KIO::TransferJob *job = KIO::get(query, KIO::NoReload, KIO::HideProgressInfo);
@@ -77,6 +88,18 @@ void PicasaInterface::parseResults(KJob *job)
         return;
     }
 
+    m_token = "";
+
+    if (m_request.contains("album")) {
+        listAllAlbums(job);
+    }
+    else if (m_request.contains("photo")) {
+        listAllPhotos(job);
+    }
+}
+
+void PicasaInterface::listAllAlbums(KJob *job)
+{
     QDomDocument document;
     document.setContent(m_datas[static_cast<KIO::Job*>(job)]);
 
@@ -96,12 +119,10 @@ void PicasaInterface::parseResults(KJob *job)
         QString link = domElement.attribute("href");
 
         QString title = entries.at(i).namedItem("title").toElement().text();
-        QString summary = entries.at(i).namedItem("title").toElement().text();
+        QString summary = entries.at(i).namedItem("summary").toElement().text();
         QString numPhotos = entries.at(i).namedItem("gphoto:numphotos").toElement().text();
         // byteUsed only if the user is logged
         QString byteUsed = entries.at(i).namedItem("gphoto:bytesUsed").toElement().text();
-        //QDomElement mediaElement = entries.at(i).firstChildElement("media:thumbnail");
-        //QString thumb = mediaElement.attribute("url");
         QDomNode mediaNode = entries.at(i).namedItem("media:group");
         QDomElement mediaElement = mediaNode.firstChildElement("media:thumbnail");
         QString thumb = mediaElement.attribute("url");
@@ -126,6 +147,55 @@ void PicasaInterface::parseResults(KJob *job)
 
 }
 
+void PicasaInterface::listAllPhotos(KJob *job)
+{
+    QDomDocument document;
+    document.setContent(m_datas[static_cast<KIO::Job*>(job)]);
+
+    QDomNodeList entries = document.elementsByTagName("entry");
+    for (int i = 0; i < entries.count(); i++) {
+
+        QString id = entries.at(i).namedItem("id").toElement().text().split("/").last();
+        QString published = entries.at(i).namedItem("published").toElement().text();
+        QString updated = entries.at(i).namedItem("updated").toElement().text();
+        QString title = entries.at(i).namedItem("title").toElement().text();
+        QDomElement contentElement = entries.at(i).firstChildElement("content");
+        QString link = contentElement.attribute("src");
+        QString albumid = entries.at(i).namedItem("gphoto:albumid").toElement().text();
+        QString width = entries.at(i).namedItem("gphoto:width").toElement().text();
+        QString height = entries.at(i).namedItem("gphoto:height").toElement().text();
+        QString size = entries.at(i).namedItem("gphoto:size").toElement().text();
+
+        QDomNode mediaNode = entries.at(i).namedItem("media:group");
+        QDomElement mediaElement = mediaNode.firstChildElement("media:thumbnail");
+        QString thumb72 = mediaElement.attribute("url");
+        mediaElement = mediaElement.nextSiblingElement("media:thumbnail");
+        QString thumb144 = mediaElement.attribute("url");
+        mediaElement = mediaElement.nextSiblingElement("media:thumbnail");
+        QString thumb288 = mediaElement.attribute("url");
+
+        Plasma::DataEngine::Data photo;
+        photo["published"] = published;
+        photo["updated"] = updated;
+        photo["title"] = title;
+        photo["link"] = link;
+        photo["albumId"] = albumid;
+        photo["width"] = width;
+        photo["height"] = height;
+        photo["size"] = size;
+
+        photo["thumbnail 72 pixel"] = thumb72;
+        photo["thumbnail 144 pixel"] = thumb144;
+        photo["thumbnail 288 pixel"] = thumb288;
+
+        emit result(m_queries[static_cast<KIO::Job*>(job)], id, photo);
+    }
+    m_queries.remove(static_cast<KIO::Job*>(job));
+    m_datas.remove(static_cast<KIO::Job*>(job));
+
+}
+
+
 void PicasaInterface::getTokenAndQuery(const QString &username, const QString &password, const QString &request)
 {
     m_request = request;
@@ -138,7 +208,7 @@ void PicasaInterface::getTokenAndQuery(const QString &username, const QString &p
     qsl.append("Passwd="+password);
     qsl.append("accountType="+accountType);
     qsl.append("service=lh2");
-    qsl.append("source=kde-picasaengine");
+    qsl.append("source=kde-picasaengine-0.1");
     QString dataParameters = qsl.join("&");
     QByteArray buffer;
     buffer.append(dataParameters.toUtf8());

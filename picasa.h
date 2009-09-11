@@ -28,10 +28,10 @@ class PicasaInterface;
  *
  * The engine returns search results as sources.
  * each source as a number of keys equal to the number of
- * search results from the query. The video ids correspond to the source keys.
+ * search results from the query. The ids correspond to the source keys.
  * For each key a Plasma::DataEngine::Data is
- * associated. See PicasaInterface in order to see the keys available to retrieve
- * single video informations.
+ * associated. See PicasaInterface in order to see the keys available to
+ * retrieve informations.
  *
  * @author Francesco Grieco
  */

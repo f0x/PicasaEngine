@@ -50,17 +50,17 @@ public:
 
 signals:
     /**
-     * @return the video entry as Plasma::DataEngine::Data.
+     * @return the entry as Plasma::DataEngine::Data.
      * each value can be retrieved using the following keys:
      * "title" for the video title
      * "description" for the video description
      * "keywords" for the video keywords
      *
      * @param searchTerm is the search term to be used as source name.
-     * @param id is the video id to be used as source key
-     * @param video is the video result entry retrieved after the search.
+     * @param id is the album/photo id to be used as source key
+     * @param image is the result entry retrieved after the search.
      */
-    void result(const QString &searchTerm, const QString &id, const Plasma::DataEngine::Data &video);
+    void result(const QString &searchTerm, const QString &id, const Plasma::DataEngine::Data &image);
 
 protected slots:
     void picasaDataReady(KIO::Job *job, const QByteArray &data);
@@ -75,6 +75,10 @@ private:
     QString m_token;
     QString m_request;
     QString m_username;
+    QString m_albumid;
+
+    void listAllAlbums(KJob *job);
+    void listAllPhotos(KJob *job);
 
 };
 
