@@ -32,7 +32,8 @@ PicasaInterface::PicasaInterface(QObject *parent) : QObject(parent)
 }
 
 PicasaInterface::~PicasaInterface()
-{}
+{
+}
 
 void PicasaInterface::query(const QString &username, const QString &request)
 {
@@ -45,8 +46,7 @@ void PicasaInterface::query(const QString &username, const QString &request)
     if (request.contains("/")) {
         m_albumid = request.split("/").last();
         m_request = request.split("/").first();
-    }
-    else {
+    } else {
         m_request = request;
     }
 
@@ -92,8 +92,7 @@ void PicasaInterface::parseResults(KJob *job)
 
     if (m_request.contains("album")) {
         listAllAlbums(job);
-    }
-    else if (m_request.contains("photo")) {
+    } else if (m_request.contains("photo")) {
         listAllPhotos(job);
     }
 }
@@ -222,6 +221,8 @@ void PicasaInterface::getTokenAndQuery(const QString &username, const QString &p
 
 void PicasaInterface::token(KIO::Job *job, const QByteArray &data)
 {
+    Q_UNUSED(job);
+
     if (data.isEmpty())
         return;
 
@@ -238,6 +239,8 @@ void PicasaInterface::token(KIO::Job *job, const QByteArray &data)
 
 void PicasaInterface::passwordJob(KJob *job)
 {
+    Q_UNUSED(job);
+
     if (m_token.isEmpty()) {
         return;
     }

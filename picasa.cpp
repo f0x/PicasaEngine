@@ -43,17 +43,15 @@ bool PicasaEngine::sourceRequestEvent(const QString &name)
     if (name.startsWith("album/")) {
         queryString.remove("album/");
         request = "album";
-    }
     // the syntax to require the photos of an album is
     // photo/albumID/user@gmail.com:password
     // ex: photo/32323232432/user@gmail.com:password
-    else if (name.startsWith("photo/")) {
+    } else if (name.startsWith("photo/")) {
         queryString.remove("photo/");
         QStringList list = queryString.split("/");
         queryString.remove(list.first() + "/");
         request = "photo/" + list.first();
-    }
-    else {
+    } else {
         return false;
     }
 
@@ -65,8 +63,7 @@ bool PicasaEngine::sourceRequestEvent(const QString &name)
         queryString = list.first();
         password = list.last();
         m_interface->getTokenAndQuery(queryString, password, request);
-    }
-    else {
+    } else {
         m_interface->query(queryString, request);
     }
 
